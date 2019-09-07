@@ -10,21 +10,18 @@ npr.seed(2)
 # Problem data
 n = 2
 m = 1
-
 A = npr.randn(n,n)
-A = A*0.5/specrad(A)
+A = A*0.9/specrad(A)
 B = npr.randn(n,m)
-
 SigmaA_basevec = 0.1*npr.randn(n*n)
 SigmaB_basevec = 0.1*npr.randn(n*m)
 SigmaA = np.outer(SigmaA_basevec,SigmaA_basevec)
 SigmaB = np.outer(SigmaB_basevec,SigmaB_basevec)
 
 # Number of rollouts
-nr = 100
-
+nr = 40
 # Rollout length
-ell = 1000
+ell = 400
 
 # Preallocate history matrices
 t_hist = np.arange(ell+1)
@@ -45,8 +42,8 @@ for k in range(nr):
 # Generate the random input means and covariances
 # todo - vectorize
 for t in range(ell):
-    u_mean_hist[t] = 0.1*npr.randn(m)
-    u_covr_basevec = 0.1*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
+    u_mean_hist[t] = 1.00*npr.randn(m)
+    u_covr_basevec = 1.00*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
     u_covr_hist[t] = np.outer(u_covr_basevec,u_covr_basevec)
 
 # Collect rollout data
@@ -74,10 +71,8 @@ for k in range(nr):
         x_hist[t+1,k] = x
         u_hist[t,k] = u
 
-plt.step(t_hist,x_hist[:,:,0],color='tab:blue',linewidth=0.5,alpha=0.5)
 
 # First stage: mean dynamics parameter estimation
-
 # Form data matrices for least-squares estimation
 for t in range(ell+1):
     muhat_hist[t] = (1/nr)*np.sum(x_hist[t],axis=0)
@@ -86,9 +81,9 @@ for t in range(ell+1):
         What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
 Y = muhat_hist[1:].T
 Z = np.vstack([muhat_hist[0:-1].T,u_mean_hist.T])
-
 # Solve least-squares problem
 Thetahat = mdot(Y,Z.T,la.pinv(mdot(Z,Z.T)))
+# Split learned model parameters
 Ahat = Thetahat[:,0:n]
 Bhat = Thetahat[:,n:n+m]
 
@@ -103,6 +98,7 @@ BAhat = np.kron(Bhat,Ahat)
 BBhat = np.kron(Bhat,Bhat)
 
 # Second stage: covariance dynamics parameter estimation
+# Form data matrices for least-squares estimation
 C = np.zeros([ell,n*n]).T
 Uhat_hist = np.zeros([ell,m*m])
 for t in range(ell):
@@ -110,9 +106,11 @@ for t in range(ell):
     Cminus = mdot(AAhat,Xhat_hist[t])+mdot(BAhat,What_hist[t])+mdot(ABhat,What_hist[t].T)+mdot(BBhat,Uhat_hist[t])
     C[:,t] = Xhat_hist[t+1] - Cminus
 D = np.vstack([Xhat_hist[0:-1].T,Uhat_hist.T])
-SigmaThetahat_blk = mdot(C,D.T,la.pinv(mdot(D,D.T)))
-SigmaAhat_blk = SigmaThetahat_blk[:,0:n*n]
-SigmaBhat_blk = SigmaThetahat_blk[:,n*n:n*(n+m)]
+# Solve least-squares problem
+SigmaThetahat_prime = mdot(C,D.T,la.pinv(mdot(D,D.T)))
+# Split learned model parameters
+SigmaAhat_prime = SigmaThetahat_prime[:,0:n*n]
+SigmaBhat_prime = SigmaThetahat_prime[:,n*n:n*(n+m)]
 
 def reshaper(X,m,n,p,q):
     Y = np.zeros([m*n,p*q])
@@ -134,10 +132,20 @@ def positive_semidefinite_part(X):
     return Y
 
 # Reshape and project the noise covariance estimates onto the semidefinite cone
-SigmaAhat = positive_semidefinite_part(reshaper(SigmaAhat_blk,n,n,n,n))
-SigmaBhat = positive_semidefinite_part(reshaper(SigmaBhat_blk,n,m,n,m))
+SigmaAhat = positive_semidefinite_part(reshaper(SigmaAhat_prime,n,n,n,n))
+SigmaBhat = positive_semidefinite_part(reshaper(SigmaBhat_prime,n,m,n,m))
 
 print(SigmaAhat)
 print(SigmaA)
 print(SigmaBhat)
 print(SigmaB)
+
+
+# Plotting
+# Plot the rollout state data
+fig,ax = plt.subplots(n)
+for i in range(n):
+    ax[i].step(t_hist,x_hist[:,:,i],color='tab:blue',linewidth=0.5,alpha=0.5)
+    ax[i].set_ylabel("State %d" % i)
+ax[n-1].set_xlabel("Time step")
+ax[0].set_title("Rollout data")
