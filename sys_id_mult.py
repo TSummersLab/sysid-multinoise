@@ -5,6 +5,49 @@ import matplotlib.pyplot as plt
 
 from matrixmath import specrad, mdot, vec, sympart
 
+########################################################################################################################
+# Functions
+########################################################################################################################
+def reshaper(X,m,n,p,q):
+    Y = np.zeros([m*n,p*q])
+    k = 0
+    for j in range(n):
+        for i in range(m):
+            Y[k] = vec(X[i*p:(i+1)*p,j*q:(j+1)*q])
+            k += 1
+    return Y
+
+
+def positive_semidefinite_part(X):
+    X = sympart(X)
+    Y = np.zeros_like(X)
+    eigvals, eigvecs = la.eig(X)
+    for i in range(X.shape[0]):
+        if eigvals[i] > 0:
+            Y += eigvals[i]*np.outer(eigvecs[i],eigvecs[i])
+    Y = sympart(Y)
+    return Y
+
+
+def prettyprint(A,matname=None,fmt='%+13.9f'):
+    print("%s = " % matname)
+    if len(A.shape)==2:
+        n = A.shape[0]
+        m = A.shape[1]
+        for icount,i in enumerate(A):
+            print('[' if icount==0 else ' ', end='')
+            print('[',end='')
+            for jcount,j in enumerate(i):
+                print(fmt % j,end=' ')
+            print(']', end='')
+            print(']' if icount==n-1 else '', end='')
+            print('')
+
+
+########################################################################################################################
+# Main
+########################################################################################################################
+
 # for development only
 plt.close()
 
@@ -85,7 +128,6 @@ for k in range(nr):
         x_hist[t+1,k] = x
         u_hist[t,k] = u
 
-
 # First stage: mean dynamics parameter estimation
 # Form data matrices for least-squares estimation
 for t in range(ell+1):
@@ -101,21 +143,6 @@ Thetahat = mdot(Y,Z.T,la.pinv(mdot(Z,Z.T)))
 # Split learned model parameters
 Ahat = Thetahat[:,0:n]
 Bhat = Thetahat[:,n:n+m]
-
-
-def prettyprint(A,matname=None,fmt='%+13.9f'):
-    print("%s = " % matname)
-    if len(A.shape)==2:
-        n = A.shape[0]
-        m = A.shape[1]
-        for icount,i in enumerate(A):
-            print('[' if icount==0 else ' ', end='')
-            print('[',end='')
-            for jcount,j in enumerate(i):
-                print(fmt % j,end=' ')
-            print(']', end='')
-            print(']' if icount==n-1 else '', end='')
-            print('')
 
 prettyprint(Ahat,"Ahat")
 prettyprint(A,"A   ")
@@ -141,25 +168,6 @@ SigmaThetahat_prime = mdot(C,D.T,la.pinv(mdot(D,D.T)))
 # Split learned model parameters
 SigmaAhat_prime = SigmaThetahat_prime[:,0:n*n]
 SigmaBhat_prime = SigmaThetahat_prime[:,n*n:n*(n+m)]
-
-def reshaper(X,m,n,p,q):
-    Y = np.zeros([m*n,p*q])
-    k = 0
-    for j in range(n):
-        for i in range(m):
-            Y[k] = vec(X[i*p:(i+1)*p,j*q:(j+1)*q])
-            k += 1
-    return Y
-
-def positive_semidefinite_part(X):
-    X = sympart(X)
-    Y = np.zeros_like(X)
-    eigvals, eigvecs = la.eig(X)
-    for i in range(X.shape[0]):
-        if eigvals[i] > 0:
-            Y += eigvals[i]*np.outer(eigvecs[i],eigvecs[i])
-    Y = sympart(Y)
-    return Y
 
 # Reshape and project the noise covariance estimates onto the semidefinite cone
 SigmaAhat = reshaper(SigmaAhat_prime,n,n,n,n)
