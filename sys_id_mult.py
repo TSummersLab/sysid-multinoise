@@ -5,13 +5,17 @@ import matplotlib.pyplot as plt
 
 from matrixmath import specrad, mdot, vec, sympart
 
+# for development only
+plt.close()
+
+
 npr.seed(2)
 
 # Problem data
 n = 2
 m = 1
 A = npr.randn(n,n)
-A = A*0.9/specrad(A)
+A = A*0.8/specrad(A)
 B = npr.randn(n,m)
 SigmaA_basevec = 0.1*npr.randn(n*n)
 SigmaB_basevec = 0.1*npr.randn(n*m)
@@ -19,9 +23,9 @@ SigmaA = np.outer(SigmaA_basevec,SigmaA_basevec)
 SigmaB = np.outer(SigmaB_basevec,SigmaB_basevec)
 
 # Number of rollouts
-nr = 40
+nr = 1000
 # Rollout length
-ell = 400
+ell = 10000
 
 # Preallocate history matrices
 t_hist = np.arange(ell+1)
@@ -35,32 +39,42 @@ What_hist = np.zeros([ell+1,n*m])
 Chat_hist = np.zeros([ell+1,n*n])
 
 # Initialize the state
-x0 = npr.randn(n)
+# x0 = npr.randn(n)
+x0 = np.zeros(n)
 for k in range(nr):
     x_hist[0,k] = x0
+# x_hist[0] = npr.randn(nr,n)
 
 # Generate the random input means and covariances
 # todo - vectorize
 for t in range(ell):
+    # Sample the means from a Gaussian distribution
     u_mean_hist[t] = 1.00*npr.randn(m)
+    # Sample the covariances from a Wishart distribution
     u_covr_basevec = 1.00*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
     u_covr_hist[t] = np.outer(u_covr_basevec,u_covr_basevec)
+
+# Pregenerate the inputs
+for t in range(ell):
+    u_mean = u_mean_hist[t]
+    u_covr = u_covr_hist[t]
+    u_hist[t] = npr.multivariate_normal(u_mean, u_covr, nr)
+
+# Pregenerate the process noise
+Anoise_vec_hist = npr.multivariate_normal(np.zeros(n*n), SigmaA,[ell,nr])
+Bnoise_vec_hist = npr.multivariate_normal(np.zeros(n*m), SigmaB,[ell,nr])
 
 # Collect rollout data
 # todo - vectorize so all rollouts / state transitions happen at once via matrix multiplication
 for k in range(nr):
-    x = x0
+    x = x_hist[0,k]
     for t in range(ell):
-        # Generate the random input
-        # todo - vectorize and pregenerate
-        u_mean = u_mean_hist[t]
-        u_covr = u_covr_hist[t]
-        u = npr.multivariate_normal(u_mean, u_covr)
+        # Look up the control input
+        u = u_hist[t,k]
 
-        # Generate the random noise
-        Anoise_vec = npr.multivariate_normal(np.zeros(n*n), SigmaA)
-        Bnoise_vec = npr.multivariate_normal(np.zeros(n*m), SigmaB)
-
+        # Look up the process noise
+        Anoise_vec = Anoise_vec_hist[t,k]
+        Bnoise_vec = Bnoise_vec_hist[t,k]
         Anoise = np.reshape(Anoise_vec,[n,n])
         Bnoise = np.reshape(Bnoise_vec,[n,m])
 
@@ -78,7 +92,8 @@ for t in range(ell+1):
     muhat_hist[t] = (1/nr)*np.sum(x_hist[t],axis=0)
     Xhat_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],x_hist[t]),axis=0))
     if t < ell:
-        What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
+        # What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
+        What_hist[t] = vec(np.outer(muhat_hist[t],u_mean_hist[t]))
 Y = muhat_hist[1:].T
 Z = np.vstack([muhat_hist[0:-1].T,u_mean_hist.T])
 # Solve least-squares problem
@@ -87,10 +102,25 @@ Thetahat = mdot(Y,Z.T,la.pinv(mdot(Z,Z.T)))
 Ahat = Thetahat[:,0:n]
 Bhat = Thetahat[:,n:n+m]
 
-print(Ahat)
-print(A)
-print(Bhat)
-print(B)
+
+def prettyprint(A,matname=None,fmt='%+13.9f'):
+    print("%s = " % matname)
+    if len(A.shape)==2:
+        n = A.shape[0]
+        m = A.shape[1]
+        for icount,i in enumerate(A):
+            print('[' if icount==0 else ' ', end='')
+            print('[',end='')
+            for jcount,j in enumerate(i):
+                print(fmt % j,end=' ')
+            print(']', end='')
+            print(']' if icount==n-1 else '', end='')
+            print('')
+
+prettyprint(Ahat,"Ahat")
+prettyprint(A,"A   ")
+prettyprint(Bhat,"Bhat")
+prettyprint(B,"B   ")
 
 AAhat = np.kron(Ahat,Ahat)
 ABhat = np.kron(Ahat,Bhat)
@@ -102,7 +132,7 @@ BBhat = np.kron(Bhat,Bhat)
 C = np.zeros([ell,n*n]).T
 Uhat_hist = np.zeros([ell,m*m])
 for t in range(ell):
-    Uhat_hist[t] = vec(u_covr_hist[t])
+    Uhat_hist[t] = vec(u_covr_hist[t] + np.outer(u_mean_hist[t], u_mean_hist[t]))
     Cminus = mdot(AAhat,Xhat_hist[t])+mdot(BAhat,What_hist[t])+mdot(ABhat,What_hist[t].T)+mdot(BBhat,Uhat_hist[t])
     C[:,t] = Xhat_hist[t+1] - Cminus
 D = np.vstack([Xhat_hist[0:-1].T,Uhat_hist.T])
@@ -123,29 +153,34 @@ def reshaper(X,m,n,p,q):
 
 def positive_semidefinite_part(X):
     X = sympart(X)
-    n = X.shape[0]
     Y = np.zeros_like(X)
     eigvals, eigvecs = la.eig(X)
-    for i in range(n):
+    for i in range(X.shape[0]):
         if eigvals[i] > 0:
             Y += eigvals[i]*np.outer(eigvecs[i],eigvecs[i])
+    Y = sympart(Y)
     return Y
 
 # Reshape and project the noise covariance estimates onto the semidefinite cone
-SigmaAhat = positive_semidefinite_part(reshaper(SigmaAhat_prime,n,n,n,n))
-SigmaBhat = positive_semidefinite_part(reshaper(SigmaBhat_prime,n,m,n,m))
+SigmaAhat = reshaper(SigmaAhat_prime,n,n,n,n)
+SigmaBhat = reshaper(SigmaBhat_prime,n,m,n,m)
+SigmaAhat = positive_semidefinite_part(SigmaAhat)
+SigmaBhat = positive_semidefinite_part(SigmaBhat)
 
-print(SigmaAhat)
-print(SigmaA)
-print(SigmaBhat)
-print(SigmaB)
+prettyprint(SigmaAhat,"SigmaAhat")
+prettyprint(SigmaA,"SigmaA   ")
+prettyprint(SigmaBhat,"SigmaBhat")
+prettyprint(SigmaB,"SigmaB   ")
 
 
 # Plotting
 # Plot the rollout state data
-fig,ax = plt.subplots(n)
-for i in range(n):
-    ax[i].step(t_hist,x_hist[:,:,i],color='tab:blue',linewidth=0.5,alpha=0.5)
-    ax[i].set_ylabel("State %d" % i)
-ax[n-1].set_xlabel("Time step")
-ax[0].set_title("Rollout data")
+if ell < 1000:
+    fig,ax = plt.subplots(n)
+    plot_alpha = np.min([1,10/nr])
+    for i in range(n):
+        ax[i].step(t_hist,x_hist[:,:,i],color='tab:blue',linewidth=0.5,alpha=plot_alpha)
+        ax[i].set_ylabel("State %d" % i)
+    ax[n-1].set_xlabel("Time step")
+    ax[0].set_title("Rollout data")
+    plt.show()
