@@ -8,6 +8,11 @@ from matrixmath import specrad, mdot, vec, sympart
 ########################################################################################################################
 # Functions
 ########################################################################################################################
+
+def groupdot(A,x):
+    return np.einsum('...jk,...k',A,x)
+
+
 def reshaper(X,m,n,p,q):
     Y = np.zeros([m*n,p*q])
     k = 0
@@ -44,6 +49,34 @@ def prettyprint(A,matname=None,fmt='%+13.9f'):
             print('')
 
 
+def random_system(n=2,m=1,seed=0):
+    npr.seed(seed)
+    A = npr.randn(n,n)
+    A = A*0.8/specrad(A)
+    B = npr.randn(n,m)
+    SigmaA_basevec = 0.1*npr.randn(n*n)
+    SigmaB_basevec = 0.1*npr.randn(n*m)
+    SigmaA = np.outer(SigmaA_basevec,SigmaA_basevec)
+    SigmaB = np.outer(SigmaB_basevec,SigmaB_basevec)
+    return n,m,A,B,SigmaA,SigmaB
+
+
+def example_system():
+    n = 2
+    m = 1
+    A = np.array([[-0.2, 0.1],
+                  [-0.4, 0.8]])
+    B = np.array([[-1.8],
+                  [-0.8]])
+    SigmaA = 0.01*np.array([[ 0.8, -0.2,  0.0,  0.0],
+                            [-0.2,  1.6,  0.2,  0.0],
+                            [ 0.0,  0.2,  0.2,  0.0],
+                            [ 0.0,  0.0,  0.0,  0.8]])
+    SigmaB = 0.01*np.array([[0.5, -0.2],
+                            [-0.2, 2.0]])
+    return n,m,A,B,SigmaA,SigmaB
+
+
 ########################################################################################################################
 # Main
 ########################################################################################################################
@@ -51,19 +84,9 @@ def prettyprint(A,matname=None,fmt='%+13.9f'):
 # for development only
 plt.close()
 
-
-npr.seed(2)
-
-# Problem data
-n = 2
-m = 1
-A = npr.randn(n,n)
-A = A*0.8/specrad(A)
-B = npr.randn(n,m)
-SigmaA_basevec = 0.1*npr.randn(n*n)
-SigmaB_basevec = 0.1*npr.randn(n*m)
-SigmaA = np.outer(SigmaA_basevec,SigmaA_basevec)
-SigmaB = np.outer(SigmaB_basevec,SigmaB_basevec)
+seed = 0
+npr.seed(seed)
+n,m,A,B,SigmaA,SigmaB = example_system()
 
 # Number of rollouts
 nr = 1000
@@ -82,51 +105,37 @@ What_hist = np.zeros([ell+1,n*m])
 Chat_hist = np.zeros([ell+1,n*n])
 
 # Initialize the state
-# x0 = npr.randn(n)
-x0 = np.zeros(n)
-for k in range(nr):
-    x_hist[0,k] = x0
-# x_hist[0] = npr.randn(nr,n)
+x_hist[0] = npr.randn(nr,n)
 
 # Generate the random input means and covariances
-# todo - vectorize
 for t in range(ell):
     # Sample the means from a Gaussian distribution
-    u_mean_hist[t] = 1.00*npr.randn(m)
+    u_mean_hist[t] = 1*npr.randn(m)
     # Sample the covariances from a Wishart distribution
-    u_covr_basevec = 1.00*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
+    u_covr_basevec = 0.1*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
     u_covr_hist[t] = np.outer(u_covr_basevec,u_covr_basevec)
 
-# Pregenerate the inputs
+# Generate the inputs
 for t in range(ell):
     u_mean = u_mean_hist[t]
     u_covr = u_covr_hist[t]
     u_hist[t] = npr.multivariate_normal(u_mean, u_covr, nr)
 
-# Pregenerate the process noise
+# Generate the process noise
 Anoise_vec_hist = npr.multivariate_normal(np.zeros(n*n), SigmaA,[ell,nr])
 Bnoise_vec_hist = npr.multivariate_normal(np.zeros(n*m), SigmaB,[ell,nr])
+Anoise_hist = np.reshape(Anoise_vec_hist,[ell,nr,n,n],order='F')
+Bnoise_hist = np.reshape(Bnoise_vec_hist,[ell,nr,n,m],order='F')
 
 # Collect rollout data
-# todo - vectorize so all rollouts / state transitions happen at once via matrix multiplication
-for k in range(nr):
-    x = x_hist[0,k]
-    for t in range(ell):
-        # Look up the control input
-        u = u_hist[t,k]
-
-        # Look up the process noise
-        Anoise_vec = Anoise_vec_hist[t,k]
-        Bnoise_vec = Bnoise_vec_hist[t,k]
-        Anoise = np.reshape(Anoise_vec,[n,n])
-        Bnoise = np.reshape(Bnoise_vec,[n,m])
-
-        # Transition the state
-        x = mdot((A+Anoise),x) + mdot((B+Bnoise),u)
-
-        # Record quantities
-        x_hist[t+1,k] = x
-        u_hist[t,k] = u
+for t in range(ell):
+    # Look up the previous state, input, and process noise
+    x = x_hist[t]
+    u = u_hist[t]
+    Anoise = Anoise_hist[t]
+    Bnoise = Bnoise_hist[t]
+    # Transition the state
+    x_hist[t+1] = groupdot(A+Anoise,x) + groupdot(B+Bnoise,u)
 
 # First stage: mean dynamics parameter estimation
 # Form data matrices for least-squares estimation
@@ -183,7 +192,7 @@ prettyprint(SigmaB,"SigmaB   ")
 
 # Plotting
 # Plot the rollout state data
-if ell < 1000:
+if ell < 200:
     fig,ax = plt.subplots(n)
     plot_alpha = np.min([1,10/nr])
     for i in range(n):
