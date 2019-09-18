@@ -29,7 +29,7 @@ def positive_semidefinite_part(X):
     eigvals, eigvecs = la.eig(X)
     for i in range(X.shape[0]):
         if eigvals[i] > 0:
-            Y += eigvals[i]*np.outer(eigvecs[i],eigvecs[i])
+            Y += eigvals[i]*np.outer(eigvecs[:,i],eigvecs[:,i])
     Y = sympart(Y)
     return Y
 
@@ -68,11 +68,11 @@ def example_system():
                   [-0.4, 0.8]])
     B = np.array([[-1.8],
                   [-0.8]])
-    SigmaA = 0.01*np.array([[ 0.8, -0.2,  0.0,  0.0],
+    SigmaA = 0.1*np.array([[ 0.8, -0.2,  0.0,  0.0],
                             [-0.2,  1.6,  0.2,  0.0],
                             [ 0.0,  0.2,  0.2,  0.0],
                             [ 0.0,  0.0,  0.0,  0.8]])
-    SigmaB = 0.01*np.array([[0.5, -0.2],
+    SigmaB = 0.1*np.array([[0.5, -0.2],
                             [-0.2, 2.0]])
     return n,m,A,B,SigmaA,SigmaB
 
@@ -86,10 +86,11 @@ plt.close()
 
 seed = 0
 npr.seed(seed)
+# n,m,A,B,SigmaA,SigmaB = random_system(seed=seed)
 n,m,A,B,SigmaA,SigmaB = example_system()
 
 # Number of rollouts
-nr = 1000
+nr = 100
 # Rollout length
 ell = 10000
 
