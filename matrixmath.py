@@ -23,14 +23,18 @@ def vec(A):
 def sympart(A):
     return 0.5*(A+A.T)
 
-# Overload and extend the numpy kron function to take a single argument
-def kron(*args):
-    if len(args)==1:
-        return np.kron(args[0],args[0])
-    else:
-        return np.kron(*args)
+# Return the positive semidefinite part of a matrix
+def positive_semidefinite_part(X):
+    X = sympart(X)
+    Y = np.zeros_like(X)
+    eigvals, eigvecs = la.eig(X)
+    for i in range(X.shape[0]):
+        if eigvals[i] > 0:
+            Y += eigvals[i]*np.outer(eigvecs[:,i],eigvecs[:,i])
+    Y = sympart(Y)
+    return Y
 
-## Multi-dot
+## Multiple dot product
 def mdot(*args):
     return reduce(np.dot, args)
 
@@ -50,29 +54,11 @@ def minsv(A):
 def solveb(a,b):
     return la.solve(b.T,a.T).T
 
-# Overload the numpy randn function so it always uses the same RandomState
-# similarly to how MATLAB works (random number generator is 'global')
-seed = 3187
-rng = np.random.RandomState(seed)
-
-def rand(*args):
-    return rng.rand(*args)
-
-def randn(*args):
-    return rng.randn(*args)
-
-def randint(*args):
-    return rng.randint(*args)
-
-def rngg():
-    return rng
-
 # Symmetric log transform
 def symlog(X,scale=1):
     return np.multiply(np.sign(X),np.log(1+np.abs(X)/(10**scale)))
 
-# Ammend the dlyap and dare functions to correct issue where
-# input A, Q matrices are modified (unwanted behavior);
+# Ammend the dlyap and dare functions to correct issue where input A, Q matrices are modified (unwanted behavior);
 # simply pass a copy of the matrices to protect them from modification
 def dlyap(A,Q):
     try:

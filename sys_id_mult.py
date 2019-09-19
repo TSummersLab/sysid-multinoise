@@ -3,7 +3,7 @@ import numpy.random as npr
 import numpy.linalg as la
 import matplotlib.pyplot as plt
 
-from matrixmath import specrad, mdot, vec, sympart
+from matrixmath import specrad, mdot, vec, sympart, positive_semidefinite_part
 
 ########################################################################################################################
 # Functions
@@ -20,17 +20,6 @@ def reshaper(X,m,n,p,q):
         for i in range(m):
             Y[k] = vec(X[i*p:(i+1)*p,j*q:(j+1)*q])
             k += 1
-    return Y
-
-
-def positive_semidefinite_part(X):
-    X = sympart(X)
-    Y = np.zeros_like(X)
-    eigvals, eigvecs = la.eig(X)
-    for i in range(X.shape[0]):
-        if eigvals[i] > 0:
-            Y += eigvals[i]*np.outer(eigvecs[:,i],eigvecs[:,i])
-    Y = sympart(Y)
     return Y
 
 
@@ -68,11 +57,11 @@ def example_system():
                   [-0.4, 0.8]])
     B = np.array([[-1.8],
                   [-0.8]])
-    SigmaA = 0.1*np.array([[ 0.8, -0.2,  0.0,  0.0],
+    SigmaA = 0.01*np.array([[ 0.8, -0.2,  0.0,  0.0],
                             [-0.2,  1.6,  0.2,  0.0],
                             [ 0.0,  0.2,  0.2,  0.0],
                             [ 0.0,  0.0,  0.0,  0.8]])
-    SigmaB = 0.1*np.array([[0.5, -0.2],
+    SigmaB = 0.01*np.array([[0.5, -0.2],
                             [-0.2, 2.0]])
     return n,m,A,B,SigmaA,SigmaB
 
@@ -86,7 +75,7 @@ plt.close()
 
 seed = 0
 npr.seed(seed)
-# n,m,A,B,SigmaA,SigmaB = random_system(seed=seed)
+# n,m,A,B,SigmaA,SigmaB = random_system(n=6,m=4,seed=seed)
 n,m,A,B,SigmaA,SigmaB = example_system()
 
 # Number of rollouts
@@ -113,7 +102,7 @@ for t in range(ell):
     # Sample the means from a Gaussian distribution
     u_mean_hist[t] = 1*npr.randn(m)
     # Sample the covariances from a Wishart distribution
-    u_covr_basevec = 0.1*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
+    u_covr_basevec = 0.01*npr.randn(m) # should the second dimension be 1 or > 1 ? does it matter?
     u_covr_hist[t] = np.outer(u_covr_basevec,u_covr_basevec)
 
 # Generate the inputs
@@ -193,7 +182,7 @@ prettyprint(SigmaB,"SigmaB   ")
 
 # Plotting
 # Plot the rollout state data
-if ell < 200:
+if ell < 500:
     fig,ax = plt.subplots(n)
     plot_alpha = np.min([1,10/nr])
     for i in range(n):
