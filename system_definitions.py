@@ -1,7 +1,7 @@
 import numpy as np
 import numpy.random as npr
-import numpy.linalg as la
 
+from matrixmath import specrad
 
 def random_system(n=2,m=1,seed=0):
     npr.seed(seed)
@@ -15,7 +15,7 @@ def random_system(n=2,m=1,seed=0):
     return n,m,A,B,SigmaA,SigmaB
 
 
-def example_system_scalar(Sa=0.3,Sb=0.5):
+def example_system_scalar(Sa=0.5,Sb=0.5):
     n = 1
     m = 1
     A = np.array([[-0.5]])

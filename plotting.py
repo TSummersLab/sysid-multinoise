@@ -69,11 +69,11 @@ def plot_estimation_error(tk_hist,Ahat_error_hist,Bhat_error_hist,SigmaAhat_erro
     ax.legend(["Ahat", "Bhat", "SigmaAhat", "SigmaBhat"])
     ax.set_xlabel(xlabel_str)
     ax.set_ylabel("Normalized Error")
-    ax.set_yscale("log")
+    # ax.set_yscale("log")
     return fig,ax
 
 
-def plot_estimation_error_multi(s_hist,experiment_data,xlabel_str):
+def plot_estimation_error_multi(s_hist,experiment_data,xlabel_str,scale_option='log'):
     # Plot the normalized model estimation errors
     fig,ax = plt.subplots(nrows=2,ncols=2)
     plt.subplots_adjust(wspace=0.3,hspace=0.3)
@@ -85,18 +85,28 @@ def plot_estimation_error_multi(s_hist,experiment_data,xlabel_str):
     for k in range(4):
         i,j = ax_idx_i[k],ax_idx_j[k]
         # Fill the region between min and max values
-        ax[i,j].fill_between(s_hist,np.min(experiment_data[k],1),np.max(experiment_data[k], 1), step='pre', color='silver', alpha = 0.5)
+        ax[i,j].fill_between(s_hist,np.min(experiment_data[k],1),np.max(experiment_data[k],1), step='pre', color='silver', alpha = 0.5)
         # Fill the interquartile region
         ax[i,j].fill_between(s_hist,np.percentile(experiment_data[k],25,1),np.percentile(experiment_data[k],75,1), step='pre', color='grey',alpha=0.5)
         # Plot the individual experiment realizations
-        ax[i,j].step(s_hist, experiment_data[k], color='k', linewidth=1, alpha=0.05)
-        # Plot the mean of the experiments
-        ax[i,j].step(s_hist, np.mean(experiment_data[k],1), color='mediumblue', linewidth=2)
+        ax[i,j].step(s_hist, experiment_data[k], linewidth=1, alpha=0.5)
+        # ax[i,j].step(s_hist, experiment_data[k], color='tab:blue', linewidth=1, alpha=0.5)
+        # # Plot the mean of the experiments
+        # ax[i,j].step(s_hist, np.mean(experiment_data[k],1), color='mediumblue', linewidth=2)
         # Plot the median of the experiments
         ax[i,j].step(s_hist, np.percentile(experiment_data[k], 50, 1), color='k', linewidth=2)
+        if scale_option == 'log':
+            # Plot a reference curve for an O(1/sqrt(N)) convergence rate
+            ref_scale = 1.0
+            ref_curve = s_hist**-0.5
+            ref_curve *= ref_scale*np.max(np.percentile(experiment_data[k],75,1)/ref_curve)
+            ax[i,j].plot(s_hist, ref_curve, color='r', linewidth=2, linestyle='--')
+            ax[i,j].set_xscale("log")
+            ax[i,j].set_yscale("log")
         ax[i,j].set_title(title_str_list[k],fontsize=20)
         ax[i,j].set_xlabel(xlabel_str)
         ax[i,j].set_ylabel("Normalized Error")
-        ax[i,j].set_yscale("log")
-        ax[i,j].ticklabel_format(axis='x',style='sci',scilimits=(0,4))
+        # ax[i,j].set_ylim([1e-4,1e1])
+        if ax[i,j].get_xscale() is "linear":
+            ax[i,j].ticklabel_format(axis='x',style='sci',scilimits=(0,4))
     return fig,ax
