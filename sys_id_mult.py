@@ -1,11 +1,14 @@
 import numpy as np
 import numpy.random as npr
 import numpy.linalg as la
-import matplotlib.pyplot as plt
 
 from matrixmath import specrad, mdot, vec, sympart, positive_semidefinite_part
 
 from time import time
+
+from system_definitions import random_system, example_system_scalar, example_system_twostate
+
+from plotting import plot_trajectories,plot_model_estimates,plot_estimation_error,plot_estimation_error_multi
 
 
 ########################################################################################################################
@@ -41,53 +44,15 @@ def prettyprint(A,matname=None,fmt='%+13.9f'):
             print('')
 
 
-def random_system(n=2,m=1,seed=0):
-    npr.seed(seed)
-    A = npr.randn(n,n)
-    A = A*0.8/specrad(A)
-    B = npr.randn(n,m)
-    SigmaA_basevec = 0.1*npr.randn(n*n)
-    SigmaB_basevec = 0.1*npr.randn(n*m)
-    SigmaA = np.outer(SigmaA_basevec,SigmaA_basevec)
-    SigmaB = np.outer(SigmaB_basevec,SigmaB_basevec)
-    return n,m,A,B,SigmaA,SigmaB
-
-
-def example_system_scalar():
-    n = 1
-    m = 1
-    A = np.array([[-0.7]])
-    B = np.array([[0.8]])
-    SigmaA = np.array([[0.3]])
-    SigmaB = np.array([[0.5]])
-    return n,m,A,B,SigmaA,SigmaB
-
-
-def example_system_twostate():
-    n = 2
-    m = 1
-    A = np.array([[-0.2, 0.1],
-                  [-0.4, 0.8]])
-    B = np.array([[-1.8],
-                  [-0.8]])
-    SigmaA = 0.1*np.array([[ 0.8, -0.2,  0.0,  0.0],
-                            [-0.2,  1.6,  0.2,  0.0],
-                            [ 0.0,  0.2,  0.2,  0.0],
-                            [ 0.0,  0.0,  0.0,  0.8]])
-    SigmaB = 0.1*np.array([[0.5, -0.2],
-                            [-0.2, 2.0]])
-    return n,m,A,B,SigmaA,SigmaB
-
-
-def generate_sample_data(n,m,SigmaA,SigmaB,nr,ell):
+def generate_sample_data(n,m,SigmaA,SigmaB,nr,ell,u_mean_var=1.0,u_covr_var=0.1):
     # Generate the random input means and covariances
     u_mean_hist = np.zeros([ell, m])
     u_covr_hist = np.zeros([ell, m, m])
     for t in range(ell):
         # Sample the means from a Gaussian distribution
-        u_mean_hist[t] = 1 * npr.randn(m)
+        u_mean_hist[t] = u_mean_var*npr.randn(m)
         # Sample the covariances from a Wishart distribution
-        u_covr_base = 0.1 * npr.randn(m,m)
+        u_covr_base = u_covr_var*npr.randn(m,m)
         u_covr_hist[t] = np.dot(u_covr_base.T,u_covr_base)
 
     # Generate the inputs
@@ -106,7 +71,7 @@ def generate_sample_data(n,m,SigmaA,SigmaB,nr,ell):
     return u_mean_hist,u_covr_hist,u_hist,Anoise_hist,Bnoise_hist
 
 
-def estimate_model(n,m,nr,ell,x_hist,u_mean_hist,u_covr_hist,display_estimates=False):
+def estimate_model(n,m,nr,ell,x_hist,u_mean_hist,u_covr_hist,display_estimates=False,cheat_AB=False):
     muhat_hist = np.zeros([ell + 1, n])
     Xhat_hist = np.zeros([ell + 1, n * n])
     What_hist = np.zeros([ell + 1, n * m])
@@ -126,6 +91,10 @@ def estimate_model(n,m,nr,ell,x_hist,u_mean_hist,u_covr_hist,display_estimates=F
     # Split learned model parameters
     Ahat = Thetahat[:, 0:n]
     Bhat = Thetahat[:, n:n + m]
+
+    if cheat_AB:
+        Ahat = np.copy(A)
+        Bhat = np.copy(B)
 
     AAhat = np.kron(Ahat, Ahat)
     ABhat = np.kron(Ahat, Bhat)
@@ -165,71 +134,6 @@ def estimate_model(n,m,nr,ell,x_hist,u_mean_hist,u_covr_hist,display_estimates=F
 
     return Ahat,Bhat,SigmaAhat,SigmaBhat
 
-
-def plot_trajectories(nr,ell,t_hist,x_hist):
-    # Plot the rollout state data
-    if ell < 1200 and nr < 4000:
-        fig, ax = plt.subplots(n)
-        plot_alpha = np.min([1, 10 / nr])
-        if n > 1:
-            for i in range(n):
-                ax[i].step(t_hist, x_hist[:, :, i], color='tab:blue', linewidth=0.5, alpha=plot_alpha)
-                ax[i].set_ylabel("State %d" % i+1)
-            ax[-1].set_xlabel("Time step")
-            ax[0].set_title("Rollout data")
-        else:
-            ax.step(t_hist, x_hist[:, :, 0], color='tab:blue', linewidth=0.5, alpha=plot_alpha)
-            ax.set_ylabel("State")
-            ax.set_xlabel("Time step")
-            ax.set_title("Rollout data")
-        return fig,ax
-
-
-def plot_model_estimates(A,B,SigmaA,SigmaB,Ahat,Bhat,SigmaAhat,SigmaBhat):
-    if A.size + B.size > 2:
-        # View the model estimates as matrices
-        fig, ax = plt.subplots(3, 4)
-        fig.set_size_inches(10, 6)
-        im00 = ax[0, 0].imshow(A)
-        ax[0, 1].imshow(B)
-        ax[0, 2].imshow(SigmaA)
-        ax[0, 3].imshow(SigmaB)
-        im10 = ax[1, 0].imshow(Ahat)
-        ax[1, 1].imshow(Bhat)
-        ax[1, 2].imshow(SigmaAhat)
-        ax[1, 3].imshow(SigmaBhat)
-        im20 = ax[2, 0].imshow(np.abs(A - Ahat))
-        ax[2, 1].imshow(np.abs(B - Bhat))
-        ax[2, 2].imshow(np.abs(SigmaA - SigmaAhat))
-        ax[2, 3].imshow(np.abs(SigmaB - SigmaBhat))
-
-        ax[0, 0].set_ylabel("True")
-        ax[1, 0].set_ylabel("Estimate")
-        ax[2, 0].set_ylabel("Normalized Error")
-        ax[2, 0].set_xlabel("A")
-        ax[2, 1].set_xlabel("B")
-        ax[2, 2].set_xlabel("SigmaA")
-        ax[2, 3].set_xlabel("SigmaB")
-
-        # plt.colorbar(im00,ax=ax[0,3])
-        # plt.colorbar(im10,ax=ax[1,3])
-        # plt.colorbar(im20,ax=ax[2,3])
-        return fig, ax
-
-
-def plot_estimation_error(tk_hist,Ahat_error_hist,Bhat_error_hist,SigmaAhat_error_hist,SigmaBhat_error_hist,xlabel_str):
-    # Plot the normalized model estimation errors
-    fig, ax = plt.subplots()
-    fig.set_size_inches(10, 6)
-    ax.step(tk_hist, Ahat_error_hist, linewidth=2)
-    ax.step(tk_hist, Bhat_error_hist, linewidth=2)
-    ax.step(tk_hist, SigmaAhat_error_hist, linewidth=2)
-    ax.step(tk_hist, SigmaBhat_error_hist, linewidth=2)
-    ax.legend(["Ahat", "Bhat", "SigmaAhat", "SigmaBhat"])
-    ax.set_xlabel(xlabel_str)
-    ax.set_ylabel("Normalized Error")
-    ax.set_yscale("log")
-    return fig,ax
 
 
 def experiment_fixed_rollout(n,m,A,B,SigmaA,SigmaB,nr,ell):
@@ -289,17 +193,15 @@ def experiment_increasing_rollout_length(n,m,A,B,SigmaA,SigmaB,nr,ell):
     plt.show()
 
 
-def experiment_increasing_rollout_count(n, m, A, B, SigmaA, SigmaB, nr, ell, print_updates=True):
-    u_mean_hist, u_covr_hist, u_hist, Anoise_hist, Bnoise_hist = generate_sample_data(n, m, SigmaA, SigmaB, nr, ell)
+def experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell,u_mean_var,u_covr_var,estimate_stride=1,print_updates=True):
+    u_mean_hist, u_covr_hist, u_hist, Anoise_hist, Bnoise_hist = generate_sample_data(n,m,SigmaA,SigmaB,nr,ell,u_mean_var,u_covr_var)
 
     # Collect rollout data
     x_hist = np.zeros([ell + 1, nr, n])
     # Initialize the state
     x_hist[0] = npr.randn(nr, n)
-    estimate_stride = int(np.ceil(nr/100))
     ns = round(nr / estimate_stride)
     t_hist = np.arange(ell + 1)
-    s_hist = estimate_stride * np.arange(ns)
     Ahat_error_hist = np.full(ns, np.nan)
     Bhat_error_hist = np.full(ns, np.nan)
     SigmaAhat_error_hist = np.full(ns, np.nan)
@@ -308,11 +210,12 @@ def experiment_increasing_rollout_count(n, m, A, B, SigmaA, SigmaB, nr, ell, pri
     for t in range(ell):
         # Transition the state
         x_hist[t + 1] = groupdot(A + Anoise_hist[t], x_hist[t]) + groupdot(B + Bnoise_hist[t], u_hist[t])
+        if print_updates:
+            print("Simulated time step %d" % t)
 
     k = 0
     if print_updates:
         header_str = "# of rollouts |   A error   |   B error   | SigmaA error | SigmaB error"
-
         print(header_str)
     for r in np.arange(1,nr):
         if r % estimate_stride == 0:
@@ -326,10 +229,61 @@ def experiment_increasing_rollout_count(n, m, A, B, SigmaA, SigmaB, nr, ell, pri
                 print(update_str)
             k += 1
     # Plotting
-    plot_trajectories(nr,ell,t_hist,x_hist)
-    plot_estimation_error(s_hist, Ahat_error_hist, Bhat_error_hist, SigmaAhat_error_hist, SigmaBhat_error_hist, xlabel_str="Number of rollouts")
-    plot_model_estimates(A,B,SigmaA,SigmaB,Ahat,Bhat,SigmaAhat,SigmaBhat)
-    plt.show()
+    # plot_trajectories(nr,ell,t_hist,x_hist)
+    # plot_estimation_error(s_hist, Ahat_error_hist, Bhat_error_hist, SigmaAhat_error_hist, SigmaBhat_error_hist, xlabel_str="Number of rollouts")
+    # plot_model_estimates(A,B,SigmaA,SigmaB,Ahat,Bhat,SigmaAhat,SigmaBhat)
+    # plt.show()
+
+    return np.vstack([Ahat_error_hist, Bhat_error_hist, SigmaAhat_error_hist, SigmaBhat_error_hist])
+
+
+def multi_experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,ne,estimate_stride,ns,s_hist,nr,ell,u_mean_var,u_covr_var):
+    experiment_data = np.zeros([4, ns, ne])
+    for i in range(ne):
+        experiment_data[:,:,i] = experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell,u_mean_var,u_covr_var,estimate_stride=estimate_stride,print_updates=False)
+        print("Experiment %04d / %04d completed" % (i+1, ne))
+    plot_estimation_error_multi(s_hist, experiment_data, xlabel_str="Number of rollouts")
+
+
+
+
+def parameter_study():
+    # Scalar experiment
+    seed = 0
+    npr.seed(seed)
+
+
+    # A_noise_list =
+    # B_noise_list =
+    # u_mean_parameter_list =
+    # u_covr_parameter_list =
+    #
+    # cheat_AB =
+
+    # Number of rollouts
+    nr = int(1e6)
+
+    # Rollout length
+    ell = 4
+
+    # Model estimation stride
+    estimate_stride = int(np.ceil(nr/100))
+    ns = round(nr/estimate_stride)
+    s_hist = estimate_stride*np.arange(ns)
+
+    # Number of experiments
+    ne = 40
+
+    # System definition
+    Sa = 0.3
+    Sb = 0.5
+    n,m,A,B,SigmaA,SigmaB = example_system_scalar(Sa,Sb)
+
+    # Input design hyperparameters
+    u_mean_var = 1
+    u_covr_var = 0.1
+
+    multi_experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,ne,estimate_stride,ns,s_hist,nr,ell,u_mean_var,u_covr_var)
 
 
 ########################################################################################################################
@@ -337,30 +291,19 @@ def experiment_increasing_rollout_count(n, m, A, B, SigmaA, SigmaB, nr, ell, pri
 ########################################################################################################################
 
 # for development only
+import matplotlib.pyplot as plt
 plt.close('all')
 
-
-# Scalar experiment
-seed = 0
-npr.seed(seed)
-n,m,A,B,SigmaA,SigmaB = example_system_scalar()
-# Number of rollouts
-nr = int(10e6)
-# Rollout length
-ell = 4
-
-experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell)
-
+parameter_study()
 
 # # Two-state experiment
 # seed = 0
 # npr.seed(seed)
 # n,m,A,B,SigmaA,SigmaB = example_system_twostate()
 # # Number of rollouts
-# nr = int(10e6)
+# nr = int(1e6)
 # # Rollout length
 # ell = int((m**2*n**4)/2 + (m**2*n**2)/2 + m**2 + 1)
-#
 # experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell)
 
 
