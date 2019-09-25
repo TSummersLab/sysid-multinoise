@@ -3,7 +3,7 @@
 ## System identification for linear systems with multiplicative noise
 
 The code in this repository implements the algorithms and ideas from our paper:
-* Linear System Identification under Multiplicative Noise from Multiple Trajectory Data(under review)
+* Linear System Identification under Multiplicative Noise from Multiple Trajectory Data (under review)
 
 
 ## Dependencies
