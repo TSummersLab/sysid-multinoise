@@ -73,40 +73,63 @@ def plot_estimation_error(tk_hist,Ahat_error_hist,Bhat_error_hist,SigmaAhat_erro
     return fig,ax
 
 
-def plot_estimation_error_multi(s_hist,experiment_data,xlabel_str,scale_option='log'):
+def plot_estimation_error_multi(n,m,s_hist,experiment_data,xlabel_str,scale_option='log',show_reference_curve=True):
     # Plot the normalized model estimation errors
     fig,ax = plt.subplots(nrows=2,ncols=2)
-    plt.subplots_adjust(wspace=0.3,hspace=0.3)
-    fig.set_size_inches(8, 8)
+    plt.subplots_adjust(wspace=0.4,hspace=0.4)
+    fig.set_size_inches(7, 7)
     # title_str_list = ["A", "B", "SigmaA", "SigmaB"]
     title_str_list = ["A", "B", r"$\Sigma_A$", r"$\Sigma_B$"]
+    # ylabel_str_list = [r"$ \frac{\|A-\hat{A}\|_F}{\|A\|_F} $",
+    #                    r"$ \frac{\|B-\hat{B}\|_F}{\|B\|_F} $",
+    #                    r"$ \frac{\|\Sigma_A-\hat{\Sigma}_A \|_F}{\|\Sigma_A\|_F} $",
+    #                    r"$ \frac{\|\Sigma_B-\hat{\Sigma}_B \|_F}{\|\Sigma_B\|_F} $"]
+    ylabel_str_list = ["Normalized error"]*4
     ax_idx_i = [0,0,1,1]
     ax_idx_j = [0,1,0,1]
     for k in range(4):
-        i,j = ax_idx_i[k],ax_idx_j[k]
+        # Get quartiles
+        y000 = np.min(experiment_data[k],1)
+        y025 = np.percentile(experiment_data[k],25,1)
+        y050 = np.percentile(experiment_data[k],50,1)
+        y075 = np.percentile(experiment_data[k],75,1)
+        y100 = np.max(experiment_data[k],1)
+        # Axes indices
+        i,j = ax_idx_i[k], ax_idx_j[k]
         # Fill the region between min and max values
-        ax[i,j].fill_between(s_hist,np.min(experiment_data[k],1),np.max(experiment_data[k],1), step='pre', color='silver', alpha = 0.5)
+        ax[i,j].fill_between(s_hist,y000,y100,step='pre',color=0.6*np.ones(3),alpha=0.5)
         # Fill the interquartile region
-        ax[i,j].fill_between(s_hist,np.percentile(experiment_data[k],25,1),np.percentile(experiment_data[k],75,1), step='pre', color='grey',alpha=0.5)
+        ax[i,j].fill_between(s_hist,y025,y075,step='pre',color=0.3*np.ones(3),alpha=0.5)
         # Plot the individual experiment realizations
-        ax[i,j].step(s_hist, experiment_data[k], linewidth=1, alpha=0.5)
-        # ax[i,j].step(s_hist, experiment_data[k], color='tab:blue', linewidth=1, alpha=0.5)
+        if experiment_data.shape[2] < 8:
+            ax[i,j].step(s_hist, experiment_data[k], linewidth=1, alpha=0.6)
+        else:
+            # ax[i,j].step(s_hist, experiment_data[k], color='tab:blue', linewidth=1, alpha=0.2)
+            pass
         # # Plot the mean of the experiments
         # ax[i,j].step(s_hist, np.mean(experiment_data[k],1), color='mediumblue', linewidth=2)
         # Plot the median of the experiments
-        ax[i,j].step(s_hist, np.percentile(experiment_data[k], 50, 1), color='k', linewidth=2)
-        if scale_option == 'log':
-            # Plot a reference curve for an O(1/sqrt(N)) convergence rate
-            ref_scale = 1.0
-            ref_curve = s_hist**-0.5
+        median_handle, = ax[i,j].step(s_hist,y050,color='k',linewidth=2)
+        # Plot a reference curve for an O(1/sqrt(N)^n or m) convergence rate
+        if show_reference_curve:
+            ref_scale = 1.5
+            exponent = 1 if i==0 else n if j==0 else m
+            ref_curve = s_hist**(-0.5/exponent)
             ref_curve *= ref_scale*np.max(np.percentile(experiment_data[k],75,1)/ref_curve)
-            ax[i,j].plot(s_hist, ref_curve, color='r', linewidth=2, linestyle='--')
+            ref_handle, = ax[i,j].plot(s_hist, ref_curve, color='r', linewidth=2, linestyle='--')
+        if scale_option == 'log':
             ax[i,j].set_xscale("log")
             ax[i,j].set_yscale("log")
-        ax[i,j].set_title(title_str_list[k],fontsize=20)
-        ax[i,j].set_xlabel(xlabel_str)
-        ax[i,j].set_ylabel("Normalized Error")
+        ax[i,j].set_title(title_str_list[k],fontsize=16)
+        ax[i,j].set_xlabel(xlabel_str,fontsize=12)
+        ax[i,j].set_ylabel(ylabel_str_list[k],rotation=90,fontsize=12)
         # ax[i,j].set_ylim([1e-4,1e1])
         if ax[i,j].get_xscale() is "linear":
             ax[i,j].ticklabel_format(axis='x',style='sci',scilimits=(0,4))
+        legend_handles = (median_handle,ref_handle)
+        legend_labels = (r"Median",r"$\mathcal{O}\left(n_r^{-1/%d} \right)$" % (2*exponent))
+        ax[i,j].legend(legend_handles,legend_labels,fontsize=12)
+        xtick_max = np.log10(s_hist.max())
+        xtick_vals = np.logspace(0,xtick_max,int(xtick_max)+1)
+        ax[i,j].set_xticks(xtick_vals)
     return fig,ax

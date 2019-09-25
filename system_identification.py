@@ -33,6 +33,21 @@ def prettyprint(A,matname=None,fmt='%+13.9f'):
             print('')
 
 
+def ctrb(A, B):
+    n,m = np.shape(B)
+    CTRB = np.zeros([n,n*m])
+
+    # Construct the controllability matrix
+    Ai = np.eye(n)
+
+    for i in range(n):
+        cols = np.arange(i*m,(i+1)*m)
+        CTRB[:,cols] = np.dot(Ai,B)
+        Ai = np.dot(Ai,A)
+
+    return CTRB
+
+
 def generate_sample_data(n,m,SigmaA,SigmaB,nr,ell,u_mean_std=1.0,u_covr_var=0.1):
     # Generate the random input means and covariances
     u_mean_hist = np.zeros([ell, m])
@@ -71,7 +86,7 @@ def collect_rollouts(n,m,A,B,nr,ell,Anoise_hist,Bnoise_hist,u_hist,print_updates
     for t in range(ell):
         x_hist[t+1] = groupdot(A+Anoise_hist[t], x_hist[t]) + groupdot(B+Bnoise_hist[t],u_hist[t])
         if print_updates:
-            print("Simulated timestep %d" % t)
+            print("Simulated timestep %d / %d" % (t+1,ell))
 
     return x_hist
 
@@ -109,17 +124,17 @@ def estimate_model(n,m,A,B,SigmaA,SigmaB,nr,ell,x_hist,u_mean_hist,u_covr_hist,d
     # Second stage: covariance dynamics parameter estimation
     # Form data matrices for least-squares estimation
     C = np.zeros([ell, n*n]).T
-    Uhat_hist = np.zeros([ell, m * m])
+    Uhat_hist = np.zeros([ell, m*m])
     for t in range(ell):
         Uhat_hist[t] = vec(u_covr_hist[t] + np.outer(u_mean_hist[t], u_mean_hist[t]))
         Cminus = mdot(AAhat,Xhat_hist[t])+mdot(BAhat,What_hist[t])+mdot(ABhat,What_hist[t].T)+mdot(BBhat,Uhat_hist[t])
-        C[:, t] = Xhat_hist[t + 1] - Cminus
+        C[:,t] = Xhat_hist[t+1] - Cminus
     D = np.vstack([Xhat_hist[0:-1].T, Uhat_hist.T])
     # Solve least-squares problem
-    SigmaThetahat_prime = mdot(C, D.T, la.pinv(mdot(D, D.T)))
+    SigmaThetahat_prime = mdot(C, D.T, la.pinv(mdot(D,D.T)))
     # Split learned model parameters
     SigmaAhat_prime = SigmaThetahat_prime[:, 0:n*n]
-    SigmaBhat_prime = SigmaThetahat_prime[:, n*n:n*(n + m)]
+    SigmaBhat_prime = SigmaThetahat_prime[:, n*n:n*(n+m)]
 
     # Reshape and project the noise covariance estimates onto the semidefinite cone
     SigmaAhat = reshaper(SigmaAhat_prime, n, n, n, n)

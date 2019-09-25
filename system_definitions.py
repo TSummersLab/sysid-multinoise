@@ -28,7 +28,7 @@ def example_system_scalar(Sa=0.5,Sb=0.5):
 def example_system_twostate():
     n = 2
     m = 1
-    A = np.array([[-0.2, 0.1],
+    A = np.array([[-0.2, 0.3],
                   [-0.4, 0.8]])
     B = np.array([[-1.8],
                   [-0.8]])
@@ -38,4 +38,15 @@ def example_system_twostate():
                             [ 0.0,  0.0,  0.0,  0.8]])
     SigmaB = 0.1*np.array([[ 0.5, -0.2],
                            [-0.2,  2.0]])
+    return n,m,A,B,SigmaA,SigmaB
+
+def example_system_twostate_diagonal():
+    n = 2
+    m = 2
+    A = np.array([[-0.2, 0.3],
+                  [-0.4, 0.8]])
+    B = np.array([[-1.8, 0.3],
+                  [-0.8, 0.6]])
+    SigmaA = 0.1*np.eye(n*n)
+    SigmaB = 0.1*np.eye(n*m)
     return n,m,A,B,SigmaA,SigmaB
