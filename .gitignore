@@ -3,4 +3,4 @@ __pycache__/
 *.py[cod]
 
 # Development experiments
-experiments_dev
+experiments_dev/
