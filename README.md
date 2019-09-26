@@ -2,7 +2,7 @@
 
 ## System identification for linear systems with multiplicative noise
 
-The code in this repository implements the algorithms and ideas from our paper:
+The code in this repository implements the Multiple-trajectory Averaging Least-Squares (MALS) algorithm and ideas from our paper:
 * Linear System Identification under Multiplicative Noise from Multiple Trajectory Data (under review)
 
 
@@ -26,7 +26,7 @@ This script was used to run the experiment and generate the figure presented in 
 
 
 ## General code structure
-The core model parameter estimation code is located in "system_identification.py". Various simulated experiments can be run by the functions in "experiments.py". Example linear dynamic system definitions are located in "system_definitions.py". Plotting functions are provided in "plotting.py". Utility functions are located in "matrixmath.py", "pickle_io.py", and "utility.py".
+The core model parameter estimation code (MALS algorithm) is located in "system_identification.py". Various simulated experiments can be run by the functions in "experiments.py". Example linear dynamic system definitions are located in "system_definitions.py". Plotting functions are provided in "plotting.py". Utility functions are located in "matrixmath.py", "pickle_io.py", and "utility.py".
 
 ## General code notes
 Experiment results are automatically saved into the "experiments" folder under a subfolder named by the time when the experiment was ran (the "timestr" variable in the code).
