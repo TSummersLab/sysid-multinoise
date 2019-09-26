@@ -34,8 +34,8 @@ Printed output can be suppressed by setting the "print_updates" function input t
 
 
 ## Authors
-* **Ben Gravell** - [UTDallas](http://www.utdallas.edu/~tyler.summers/)
+* **Ben Gravell** - [UT Dallas](http://www.utdallas.edu/~tyler.summers/)
 * **Yu Xing** - [Chinese Academy of Sciences]
 * **Xingkang He** - [KTH](https://people.kth.se/~xingkang/index.html)
-* **Tyler Summers** - [UTDallas](http://www.utdallas.edu/~tyler.summers/)
+* **Tyler Summers** - [UT Dallas](http://www.utdallas.edu/~tyler.summers/)
 * **Karl Johannsson** - [KTH](https://people.kth.se/~kallej/)
