@@ -13,52 +13,51 @@ import matplotlib.pyplot as plt
 plt.close('all')
 
 
-# # Scalar experiment
-# seed = 1
-# npr.seed(seed)
-#
-# # System definition
-# # n,m,A,B,SigmaA,SigmaB = example_system_scalar()
+seed = 1
+npr.seed(seed)
+
+# System definition
+# n,m,A,B,SigmaA,SigmaB = example_system_scalar()
 # n,m,A,B,SigmaA,SigmaB = example_system_twostate()
-# # n,m,A,B,SigmaA,SigmaB = example_system_twostate_diagonal()
-# # n,m,A,B,SigmaA,SigmaB = random_system(n=2,m=2,seed=seed)
-#
-# # Number of rollouts
-# nr = int(1e5)
-#
-# # Rollout length
-# ell = int((m**2*n**4)/2 + (m**2*n**2)/2 + m**2 + 1)
-# # ell = n+m
-#
-# # Model estimation points
-# ns = 500
-#
-# estimation_points = 'log'
-# if estimation_points == 'linear':
-#     s_hist = np.round(np.linspace(0,nr,ns+1)).astype(int)[1:]
-# elif estimation_points == 'log':
-#     s_hist = np.unique(np.round(np.logspace(0,np.log10(nr),ns+1,base=10)).astype(int)[1:])
-#     ns_cur = s_hist.size
-#     while s_hist.size < ns:
-#         ns_cur += 1
-#         s_hist = np.unique(np.round(np.logspace(0,np.log10(nr),ns_cur+1,base=10)).astype(int)[1:])
-#
-# # Number of experiments
-# ne = 4
-#
-# # Input mean and covariance settings
-# u_mean_std = 1
-# u_covr_std = 0.1
-#
-# timestr = multi_experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,ne,ns,s_hist,nr,ell,u_mean_std,u_covr_std,print_updates=True)
-#
-# # experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell,u_mean_std,u_covr_std,ns,s_hist,print_updates=True)
-#
-# load_plot_multi_experiment(timestr)
+# n,m,A,B,SigmaA,SigmaB = example_system_twostate_diagonal()
+n,m,A,B,SigmaA,SigmaB = random_system(n=3,m=1,seed=seed)
 
+# Number of rollouts
+nr = int(1e6)
 
-timestr = "1569434349p2392745_in_paper"
+# Rollout length
+ell = int((m**2*n**4)/2 + (m**2*n**2)/2 + m**2 + 1)
+# ell = n+m
+
+# Model estimation points
+ns = 50
+
+estimation_points = 'log'
+if estimation_points == 'linear':
+    s_hist = np.round(np.linspace(0,nr,ns+1)).astype(int)[1:]
+elif estimation_points == 'log':
+    s_hist = np.unique(np.round(np.logspace(0,np.log10(nr),ns+1,base=10)).astype(int)[1:])
+    ns_cur = s_hist.size
+    while s_hist.size < ns:
+        ns_cur += 1
+        s_hist = np.unique(np.round(np.logspace(0,np.log10(nr),ns_cur+1,base=10)).astype(int)[1:])
+
+# Number of experiments
+ne = 4
+
+# Input mean and covariance settings
+u_mean_std = 1
+u_covr_std = 0.1
+
+timestr = multi_experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,ne,ns,s_hist,nr,ell,u_mean_std,u_covr_std,print_updates=True)
+
+# experiment_increasing_rollout_count(n,m,A,B,SigmaA,SigmaB,nr,ell,u_mean_std,u_covr_std,ns,s_hist,print_updates=True)
+
 load_plot_multi_experiment(timestr)
+
+
+# timestr = "1569434349p2392745_in_paper"
+# load_plot_multi_experiment(timestr)
 
 
 

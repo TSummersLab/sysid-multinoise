@@ -114,6 +114,7 @@ def plot_estimation_error_multi(n,m,s_hist,experiment_data,xlabel_str,scale_opti
         if show_reference_curve:
             ref_scale = 1.5
             exponent = 1 if i==0 else n if j==0 else m
+            # exponent = 1
             ref_curve = s_hist**(-0.5/exponent)
             ref_curve *= ref_scale*np.max(np.percentile(experiment_data[k],75,1)/ref_curve)
             ref_handle, = ax[i,j].plot(s_hist, ref_curve, color='r', linewidth=2, linestyle='--')
@@ -132,4 +133,5 @@ def plot_estimation_error_multi(n,m,s_hist,experiment_data,xlabel_str,scale_opti
         xtick_max = np.log10(s_hist.max())
         xtick_vals = np.logspace(0,xtick_max,int(xtick_max)+1)
         ax[i,j].set_xticks(xtick_vals)
+        ax[i,j].grid(True,linestyle='--')
     return fig,ax
