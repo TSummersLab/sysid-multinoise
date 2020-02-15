@@ -9,7 +9,7 @@ from system_definitions import (random_system,
                                 example_system_scalar,
                                 example_system_twostate,
                                 example_system_twostate_diagonal)
-from system_identification import generate_sample_data, collect_rollouts, estimate_model, ctrb
+from system_identification import generate_sample_data, collect_rollouts, estimate_model, estimate_model_var_only, ctrb
 from plotting import (plot_trajectories,
                       plot_model_estimates,
                       plot_estimation_error,
@@ -17,20 +17,53 @@ from plotting import (plot_trajectories,
 from pickle_io import pickle_import, pickle_export
 
 
-def experiment_fixed_rollout(n,m,A,B,SigmaA,SigmaB,nr,ell):
+def experiment_fixed_rollout(n, m, A, B, SigmaA, SigmaB, nr, ell):
     # Generate sample data
-    u_mean_hist, u_covr_hist, u_hist, Anoise_hist, Bnoise_hist = generate_sample_data(n,m,SigmaA,SigmaB,nr,ell)
+    u_mean_hist, u_covr_hist, u_hist, Anoise_hist, Bnoise_hist = generate_sample_data(n, m, SigmaA, SigmaB, nr, ell)
 
     # Collect rollout data
-    x_hist = collect_rollouts(n,m,A,B,nr,ell,Anoise_hist,Bnoise_hist,u_hist)
+    x_hist = collect_rollouts(n, m, A, B, nr, ell, Anoise_hist, Bnoise_hist, u_hist)
     t_hist = np.arange(ell+1)
 
     # Estimate the model
-    Ahat, Bhat, SigmaAhat, SigmaBhat = estimate_model(n,m,A,B,SigmaA,SigmaB,nr,ell,x_hist,u_mean_hist,u_covr_hist)
+    Ahat, Bhat, SigmaAhat, SigmaBhat = estimate_model(n, m, A, B, SigmaA, SigmaB, nr, ell, x_hist, u_mean_hist, u_covr_hist)
 
     # Plotting
     plot_trajectories(nr,ell,t_hist,x_hist)
     plot_model_estimates(A,B,SigmaA,SigmaB,Ahat,Bhat,SigmaAhat,SigmaBhat)
+
+    timestr = str(time()).replace('.','p')
+    # dirname_out = os.path.join("experiments",timestr)
+    # filename_out = os.path.join(dirname_out,"problem_data.pickle")
+    # pickle_export(dirname_out, filename_out, problem_data)
+    # filename_out = os.path.join(dirname_out,"experiment_data.npy")
+    # np.save(filename_out, experiment_data)
+    return timestr, Ahat, Bhat, SigmaAhat, SigmaBhat
+
+def experiment_fixed_rollout_var_only(n, m, A, B, SigmaA, SigmaB, varAi, varBj, Ai, Bj, nr, ell, split=False):
+    # Generate sample data
+    u_mean_hist, u_covr_hist, u_hist, Anoise_hist, Bnoise_hist = generate_sample_data(n, m, SigmaA, SigmaB, nr, ell)
+
+    # Collect rollout data
+    x_hist = collect_rollouts(n, m, A, B, nr, ell, Anoise_hist, Bnoise_hist, u_hist)
+    t_hist = np.arange(ell+1)
+
+    # Estimate the model
+    Ahat, Bhat, SigmaAhat, SigmaBhat, varAi_hat, varBj_hat = estimate_model_var_only(n, m, A, B, SigmaA, SigmaB, varAi, varBj, Ai, Bj,
+                                                                                     nr, ell, x_hist, u_mean_hist, u_covr_hist,
+                                                                                     detailed_outputs=True)
+
+    # Plotting
+    fig1, ax1 = plot_trajectories(nr, ell, t_hist, x_hist)
+    fig2, ax2 = plot_model_estimates(A, B, SigmaA, SigmaB, Ahat, Bhat, SigmaAhat, SigmaBhat, split=split)
+
+    timestr = str(time()).replace('.','p')
+    # dirname_out = os.path.join("experiments",timestr)
+    # filename_out = os.path.join(dirname_out,"problem_data.pickle")
+    # pickle_export(dirname_out, filename_out, problem_data)
+    # filename_out = os.path.join(dirname_out,"experiment_data.npy")
+    # np.save(filename_out, experiment_data)
+    return timestr, Ahat, Bhat, SigmaAhat, SigmaBhat, varAi_hat, varBj_hat, [fig1, fig2], [ax1, ax2]
 
 
 def experiment_increasing_rollout_length(n,m,A,B,SigmaA,SigmaB,nr,ell):

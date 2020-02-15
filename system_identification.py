@@ -91,30 +91,32 @@ def collect_rollouts(n,m,A,B,nr,ell,Anoise_hist,Bnoise_hist,u_hist,print_updates
     return x_hist
 
 
-def estimate_model(n,m,A,B,SigmaA,SigmaB,nr,ell,x_hist,u_mean_hist,u_covr_hist,display_estimates=False,cheat_AB=False):
+def estimate_model(n, m, A, B, SigmaA, SigmaB, nr, ell, x_hist, u_mean_hist, u_covr_hist,
+                   display_estimates=False, AB_known=False):
     muhat_hist = np.zeros([ell+1, n])
     Xhat_hist = np.zeros([ell+1, n*n])
     What_hist = np.zeros([ell+1, n*m])
 
     # First stage: mean dynamics parameter estimation
-    # Form data matrices for least-squares estimation
-    for t in range(ell+1):
-        muhat_hist[t] = (1/nr)*np.sum(x_hist[t], axis=0)
-        Xhat_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j', x_hist[t], x_hist[t]), axis=0))
-        if t < ell:
-            # What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
-            What_hist[t] = vec(np.outer(muhat_hist[t], u_mean_hist[t]))
-    Y = muhat_hist[1:].T
-    Z = np.vstack([muhat_hist[0:-1].T, u_mean_hist.T])
-    # Solve least-squares problem
-    Thetahat = mdot(Y, Z.T, la.pinv(mdot(Z, Z.T)))
-    # Split learned model parameters
-    Ahat = Thetahat[:,0:n]
-    Bhat = Thetahat[:,n:n+m]
-
-    if cheat_AB:
+    if AB_known:
         Ahat = np.copy(A)
         Bhat = np.copy(B)
+    else:
+        # Form data matrices for least-squares estimation
+        for t in range(ell+1):
+            muhat_hist[t] = (1/nr)*np.sum(x_hist[t], axis=0)
+            Xhat_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j', x_hist[t], x_hist[t]), axis=0))
+            if t < ell:
+                # What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
+                What_hist[t] = vec(np.outer(muhat_hist[t], u_mean_hist[t]))
+        Y = muhat_hist[1:].T
+        Z = np.vstack([muhat_hist[0:-1].T, u_mean_hist.T])
+        # Solve least-squares problem
+        # Thetahat = mdot(Y, Z.T, la.pinv(mdot(Z, Z.T)))
+        Thetahat = la.lstsq(Z.T, Y.T, rcond=None)[0].T
+        # Split learned model parameters
+        Ahat = Thetahat[:,0:n]
+        Bhat = Thetahat[:,n:n+m]
 
     AAhat = np.kron(Ahat, Ahat)
     ABhat = np.kron(Ahat, Bhat)
@@ -131,7 +133,8 @@ def estimate_model(n,m,A,B,SigmaA,SigmaB,nr,ell,x_hist,u_mean_hist,u_covr_hist,d
         C[:,t] = Xhat_hist[t+1] - Cminus
     D = np.vstack([Xhat_hist[0:-1].T, Uhat_hist.T])
     # Solve least-squares problem
-    SigmaThetahat_prime = mdot(C, D.T, la.pinv(mdot(D,D.T)))
+    # SigmaThetahat_prime = mdot(C, D.T, la.pinv(mdot(D,D.T)))
+    SigmaThetahat_prime = la.lstsq(D.T, C.T, rcond=None)[0].T
     # Split learned model parameters
     SigmaAhat_prime = SigmaThetahat_prime[:, 0:n*n]
     SigmaBhat_prime = SigmaThetahat_prime[:, n*n:n*(n+m)]
@@ -152,4 +155,83 @@ def estimate_model(n,m,A,B,SigmaA,SigmaB,nr,ell,x_hist,u_mean_hist,u_covr_hist,d
         prettyprint(SigmaBhat, "SigmaBhat")
         prettyprint(SigmaB, "SigmaB   ")
 
-    return Ahat,Bhat,SigmaAhat,SigmaBhat
+    return Ahat, Bhat, SigmaAhat, SigmaBhat
+
+
+def estimate_model_var_only(n, m, A, B, SigmaA, SigmaB, varAi, varBj, Ai, Bj, nr, ell, x_hist, u_mean_hist, u_covr_hist,
+                            display_estimates=False, AB_known=False, detailed_outputs=True):
+    muhat_hist = np.zeros([ell+1, n])
+    Xhat_hist = np.zeros([ell+1, n*n])
+    What_hist = np.zeros([ell+1, n*m])
+
+    # First stage: mean dynamics parameter estimation
+    if AB_known:
+        Ahat = np.copy(A)
+        Bhat = np.copy(B)
+    else:
+        # Form data matrices for least-squares estimation
+        for t in range(ell+1):
+            muhat_hist[t] = (1/nr)*np.sum(x_hist[t], axis=0)
+            Xhat_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j', x_hist[t], x_hist[t]), axis=0))
+            if t < ell:
+                # What_hist[t] = (1/nr)*vec(np.sum(np.einsum('...i,...j',x_hist[t],u_mean_hist[t]),axis=0))
+                What_hist[t] = vec(np.outer(muhat_hist[t], u_mean_hist[t]))
+        Y = muhat_hist[1:].T
+        Z = np.vstack([muhat_hist[0:-1].T, u_mean_hist.T])
+        # Solve least-squares problem
+        # Thetahat = mdot(Y, Z.T, la.pinv(mdot(Z, Z.T)))
+        Thetahat = la.lstsq(Z.T, Y.T, rcond=None)[0].T
+        # Split learned model parameters
+        Ahat = Thetahat[:,0:n]
+        Bhat = Thetahat[:,n:n+m]
+
+    AAhat = np.kron(Ahat, Ahat)
+    ABhat = np.kron(Ahat, Bhat)
+    BAhat = np.kron(Bhat, Ahat)
+    BBhat = np.kron(Bhat, Bhat)
+
+    # Second stage: covariance dynamics parameter estimation
+    # Form data matrices for least-squares estimation
+    C = np.zeros([ell, n*n]).T
+    Uhat_hist = np.zeros([ell, m*m])
+    for t in range(ell):
+        Uhat_hist[t] = vec(u_covr_hist[t] + np.outer(u_mean_hist[t], u_mean_hist[t]))
+        Cminus = mdot(AAhat,Xhat_hist[t])+mdot(BAhat,What_hist[t])+mdot(ABhat,What_hist[t].T)+mdot(BBhat,Uhat_hist[t])
+        C[:,t] = Xhat_hist[t+1] - Cminus
+
+    C = vec(C)
+
+    X1 = Xhat_hist[0:-1].T
+    U1 = Uhat_hist.T
+
+    D1 = np.vstack([vec(np.dot(np.kron(Ai[i], Ai[i]), X1)) for i in range(np.size(varAi))])
+    D2 = np.vstack([vec(np.dot(np.kron(Bj[j], Bj[j]), U1)) for j in range(np.size(varBj))])
+
+    D = np.vstack([D1, D2])
+
+    # Solve least-squares problem
+    # var_hat = mdot(C, D.T, la.pinv(mdot(D,D.T)))
+    # var_hat = mdot(la.pinv(mdot(D, D.T)), D, C)
+    var_hat = la.lstsq(D.T, C, rcond=None)[0]
+
+    varAi_hat = np.maximum(var_hat[0:np.size(varAi)], 0)
+    varBj_hat = np.maximum(var_hat[np.size(varAi):], 0)
+
+    SigmaAhat = np.sum([varAi_hat[i]*np.outer(vec(Ai[i]), vec(Ai[i])) for i in range(np.size(varAi))], axis=0)
+    SigmaBhat = np.sum([varBj_hat[j]*np.outer(vec(Bj[j]), vec(Bj[j])) for j in range(np.size(varBj))], axis=0)
+
+    if display_estimates:
+        prettyprint(Ahat, "Ahat")
+        prettyprint(A, "A   ")
+        prettyprint(Bhat, "Bhat")
+        prettyprint(B, "B   ")
+        prettyprint(SigmaAhat, "SigmaAhat")
+        prettyprint(SigmaA, "SigmaA   ")
+        prettyprint(SigmaBhat, "SigmaBhat")
+        prettyprint(SigmaB, "SigmaB   ")
+
+    if detailed_outputs:
+        outputs = Ahat, Bhat, SigmaAhat, SigmaBhat, varAi_hat, varBj_hat
+    else:
+        outputs = Ahat, Bhat, SigmaAhat, SigmaBhat
+    return outputs

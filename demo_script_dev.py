@@ -4,7 +4,8 @@ import numpy.random as npr
 from system_definitions import (random_system,
                                 example_system_scalar,
                                 example_system_twostate,
-                                example_system_twostate_diagonal)
+                                example_system_twostate_diagonal,
+                                example_system_erdos_renyi)
 from experiments import multi_experiment_increasing_rollout_count, load_plot_multi_experiment
 
 
@@ -18,19 +19,20 @@ npr.seed(seed)
 
 # System definition
 # n,m,A,B,SigmaA,SigmaB = example_system_scalar()
-# n,m,A,B,SigmaA,SigmaB = example_system_twostate()
+n,m,A,B,SigmaA,SigmaB = example_system_twostate()
 # n,m,A,B,SigmaA,SigmaB = example_system_twostate_diagonal()
-n,m,A,B,SigmaA,SigmaB = random_system(n=3,m=1,seed=seed)
+# n,m,A,B,SigmaA,SigmaB = random_system(n=3,m=1,seed=seed)
+# n,m,A,B,SigmaA,SigmaB = example_system_erdos_renyi(10)
 
 # Number of rollouts
-nr = int(1e6)
+nr = int(1e5)
 
 # Rollout length
-ell = int((m**2*n**4)/2 + (m**2*n**2)/2 + m**2 + 1)
-# ell = n+m
+# ell = int((m**2*n**4)/2 + (m**2*n**2)/2 + m**2 + 1)
+ell = n + m
 
 # Model estimation points
-ns = 50
+ns = 10
 
 estimation_points = 'log'
 if estimation_points == 'linear':

@@ -8,6 +8,7 @@ rc('text', usetex=True)
 
 
 def plot_trajectories(nr,ell,t_hist,x_hist):
+    n = x_hist.shape[-1]
     # Plot the rollout state data
     if ell < 1200 and nr < 4000:
         fig, ax = plt.subplots(n)
@@ -15,7 +16,7 @@ def plot_trajectories(nr,ell,t_hist,x_hist):
         if n > 1:
             for i in range(n):
                 ax[i].step(t_hist, x_hist[:, :, i], color='tab:blue', linewidth=0.5, alpha=plot_alpha)
-                ax[i].set_ylabel("State %d" % i+1)
+                ax[i].set_ylabel("State %d" % (i+1))
             ax[-1].set_xlabel("Time step")
             ax[0].set_title("Rollout data")
         else:
@@ -23,43 +24,82 @@ def plot_trajectories(nr,ell,t_hist,x_hist):
             ax.set_ylabel("State")
             ax.set_xlabel("Time step")
             ax.set_title("Rollout data")
-        return fig,ax
+    else:
+        fig, ax = None, None
+    return fig, ax
 
 
-def plot_model_estimates(A,B,SigmaA,SigmaB,Ahat,Bhat,SigmaAhat,SigmaBhat):
+def plot_model_estimates(A, B, SigmaA, SigmaB, Ahat, Bhat, SigmaAhat, SigmaBhat, split=False, fs=16):
+    def minmax(X1, X2):
+        return np.min([X1.min(), X2.min()]), np.max([X1.max(), X2.max()])
+
+    def imshow_compare(X1, X2, ax1, ax2, ax3, cmap=None):
+        if cmap is None:
+            cmap = 'inferno_r'
+        vmin, vmax = minmax(X1, X2)
+        im1 = ax1.imshow(X1, vmin=vmin, vmax=vmax, cmap=cmap)
+        im2 = ax2.imshow(X2, vmin=vmin, vmax=vmax, cmap=cmap)
+        im3 = ax3.imshow(np.abs(X1-X2), vmin=0, vmax=np.max(np.abs(X1-X2)), cmap=cmap)
+        for i, im, ax in zip([1, 2, 3], [im1, im2, im3], [ax1, ax2, ax3]):
+            if i==3:
+                cmin, cmax = 0, np.max(np.abs(X1-X2))
+            else:
+                cmin, cmax = vmin, vmax
+            cbar = plt.colorbar(im, ax=ax, ticks=np.linspace(cmin, cmax, 3))
+            cbar.ax.tick_params(labelsize=16)
+            ax.tick_params(axis='both', which='major', labelsize=16)
+            ax.tick_params(axis='both', which='minor', labelsize=16)
+        return vmin, vmax, im1, im2, im3
+
     if A.size + B.size > 2:
         # View the model estimates as matrices
-        fig, ax = plt.subplots(3, 4)
-        fig.set_size_inches(10, 6)
-        im00 = ax[0, 0].imshow(A)
-        ax[0, 1].imshow(B)
-        ax[0, 2].imshow(SigmaA)
-        ax[0, 3].imshow(SigmaB)
-        im10 = ax[1, 0].imshow(Ahat)
-        ax[1, 1].imshow(Bhat)
-        ax[1, 2].imshow(SigmaAhat)
-        ax[1, 3].imshow(SigmaBhat)
-        im20 = ax[2, 0].imshow(np.abs(A - Ahat))
-        ax[2, 1].imshow(np.abs(B - Bhat))
-        ax[2, 2].imshow(np.abs(SigmaA - SigmaAhat))
-        ax[2, 3].imshow(np.abs(SigmaB - SigmaBhat))
+        data = [[X, Xhat] for X, Xhat in zip([A, B, SigmaA, SigmaB], [Ahat, Bhat, SigmaAhat, SigmaBhat])]
 
-        ax[0, 0].set_ylabel("True")
-        ax[1, 0].set_ylabel("Estimate")
-        ax[2, 0].set_ylabel("Normalized Error")
-        ax[2, 0].set_xlabel("A")
-        ax[2, 1].set_xlabel("B")
-        ax[2, 2].set_xlabel("SigmaA")
-        ax[2, 3].set_xlabel("SigmaB")
+        if split:
+            figs = []
+            axs = []
+            idxs_list = [[0, 1], [2, 3]]
+            labels_list = [["$A$", "$B$"], ["$\Sigma_A$", "$\Sigma_B$"]]
+            for idxs, labels in zip(idxs_list, labels_list):
+                fig, ax = plt.subplots(3, 2)
+                fig.set_size_inches(6, 6)
+                imshow_compare(data[idxs[0]][0], data[idxs[0]][1], ax[0, 0], ax[1, 0], ax[2, 0])
+                imshow_compare(data[idxs[1]][0], data[idxs[1]][1], ax[0, 1], ax[1, 1], ax[2, 1])
+                ax[0, 0].set_ylabel("True", fontsize=fs)
+                ax[1, 0].set_ylabel("Estimate", fontsize=fs)
+                ax[2, 0].set_ylabel("Absolute Error", fontsize=fs)
+                ax[2, 0].set_xlabel(labels[0], fontsize=int(fs*1.5))
+                ax[2, 1].set_xlabel(labels[1], fontsize=int(fs*1.5))
 
-        # plt.colorbar(im00,ax=ax[0,3])
-        # plt.colorbar(im10,ax=ax[1,3])
-        # plt.colorbar(im20,ax=ax[2,3])
-        return fig, ax
+
+                fig.tight_layout()
+                figs.append(fig)
+                axs.append(ax)
+        else:
+            fig, ax = plt.subplots(3, 4)
+            fig.set_size_inches(10, 6)
+
+            for i in range(4):
+                imshow_compare(data[i][0], data[i][1], ax[0, i], ax[1, i], ax[2, i])
+
+            ax[0, 0].set_ylabel("True", fontsize=fs)
+            ax[1, 0].set_ylabel("Estimate", fontsize=fs)
+            ax[2, 0].set_ylabel("Absolute Error", fontsize=fs)
+            ax[2, 0].set_xlabel("$A$", fontsize=int(fs*1.5))
+            ax[2, 1].set_xlabel("$B$", fontsize=int(fs*1.5))
+            ax[2, 2].set_xlabel("$\Sigma_A$", fontsize=int(fs*1.5))
+            ax[2, 3].set_xlabel("$\Sigma_B$", fontsize=int(fs*1.5))
+            fig.tight_layout()
+            figs = fig
+            axs = ax
+    else:
+        figs, axs = None, None
+
+    return figs, axs
 
 
 def plot_estimation_error(tk_hist,Ahat_error_hist,Bhat_error_hist,SigmaAhat_error_hist,SigmaBhat_error_hist,xlabel_str):
-    # Plot the normalized model estimation errors
+    # Plot the model estimation errors
     fig, ax = plt.subplots()
     fig.set_size_inches(10, 6)
     ax.step(tk_hist, Ahat_error_hist, linewidth=2)
