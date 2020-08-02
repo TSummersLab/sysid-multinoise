@@ -85,7 +85,7 @@ def example_system_erdos_renyi(n, diffusion_constant=1.0, leakiness_constant=0.1
     laplacian = degree-adjacency
     # Continuous-time dynamics matrices
     Ac = -laplacian*diffusion_constant
-    Bc = np.eye(n)/time_constant # normalize just to make B = np.eye(n) later
+    Bc = np.eye(n)/time_constant # normalize just to make B = np.eye(n) later in discrete-time
 
     if leaky:
         Fc = leakiness_constant*np.eye(n)
