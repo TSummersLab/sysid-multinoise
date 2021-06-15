@@ -3,9 +3,9 @@
 ## System identification for linear systems with multiplicative noise
 
 The code in this repository implements the Multiple-trajectory Averaging Least-Squares (MALS) algorithm and ideas from our paper:
-
-"Linear System Identification under Multiplicative Noise from Multiple Trajectory Data" (accepted ACC 2020)
-
+"Linear System Identification under Multiplicative Noise from Multiple Trajectory Data"
+* [IEEE Xplore (presented @ ACC 2020)](https://ieeexplore.ieee.org/document/9147756)
+* [arXiv](https://arxiv.org/abs/2002.06613)
 
 ## Dependencies
 * Python 3.5+ (tested with 3.7.3)
