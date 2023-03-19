@@ -8,7 +8,7 @@ def groupdot(A,x):
     return np.einsum('...jk,...k',A,x)
 
 
-def reshaper(X,m,n,p,q):
+def reshaper(X, m, n, p, q):
     Y = np.zeros([m*n,p*q])
     k = 0
     for j in range(n):
